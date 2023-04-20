@@ -10,8 +10,8 @@ import (
 )
 
 type request struct {
-	Channel        string            `json:"channel"`
-	MonitoredDeals map[string]string `json:"monitoredDeals"`
+	ChannelUsername string            `json:"channelUsername"`
+	MonitoredDeals  map[string]string `json:"monitoredDeals"`
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +46,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = internal.ParseDeals(req.MonitoredDeals, req.Channel)
+	err = internal.ParseDeals(req.MonitoredDeals, req.ChannelUsername)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write(

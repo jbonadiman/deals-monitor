@@ -65,37 +65,6 @@ func (u *UpstashDB) GetCache(channelName string) (map[int]struct{}, error) {
 	return cache, nil
 }
 
-func (u *UpstashDB) CreateCache(channelName string) error {
-	cacheKey := getCacheKey(channelName)
-
-	response, err := http.Get(
-		fmt.Sprintf(
-			"%s/SET/%s/%s/EX/%d?_token=%s",
-			u.Host,
-			cacheKey,
-			"[]",
-			int(24*time.Hour/time.Second),
-			u.token,
-		),
-	)
-	if err != nil {
-		return err
-	}
-
-	defer func(body io.ReadCloser) {
-		_ = body.Close()
-	}(response.Body)
-
-	if response.StatusCode > 300 {
-		return fmt.Errorf(
-			"error creating cache with key %q",
-			cacheKey,
-		)
-	}
-
-	return nil
-}
-
 func (u *UpstashDB) PushToCache(channelName string, ids ...int) error {
 	cacheKey := getCacheKey(channelName)
 

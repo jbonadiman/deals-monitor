@@ -13,7 +13,6 @@ import (
 
 type DailyDealsCache interface {
 	GetCache(channelName string) (map[int]struct{}, error)
-	CreateCache(channelName string) error
 	PushToCache(channelName string, ids ...int) error
 }
 
@@ -48,7 +47,10 @@ func initialize() {
 	}
 }
 
-func ParseDeals(monitoredDeals map[string]string, channelName string) error {
+func ParseDeals(
+	monitoredDeals map[string]string,
+	channelUsername string,
+) error {
 	initialize()
 	var wg sync.WaitGroup
 	var messages []models.Message
@@ -60,22 +62,18 @@ func ParseDeals(monitoredDeals map[string]string, channelName string) error {
 		defer wg.Done()
 		messages, err = services.GetTelegramMessages(
 			telegramService,
-			channelName,
+			channelUsername,
 			20,
 		)
 	}()
 
-	dailyCache, err := upstashDB.GetCache(channelName)
+	dailyCache, err := upstashDB.GetCache(channelUsername)
 	if err != nil {
 		return err
 	}
 
 	if dailyCache == nil || len(dailyCache) == 0 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err = upstashDB.CreateCache(channelName)
-		}()
+		dailyCache = make(map[int]struct{})
 	}
 
 	wg.Add(1)
@@ -100,7 +98,7 @@ func ParseDeals(monitoredDeals map[string]string, channelName string) error {
 			wg.Add(1)
 			go func() { // add post to cache
 				defer wg.Done()
-				err = upstashDB.PushToCache(channelName, msg.Id)
+				err = upstashDB.PushToCache(channelUsername, msg.Id)
 			}()
 
 			for dealName, pattern := range compiledPatterns {
