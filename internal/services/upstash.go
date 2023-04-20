@@ -33,7 +33,7 @@ func (u *UpstashDB) GetCache(channelName string) (map[int]struct{}, error) {
 
 	response, err := http.Get(
 		fmt.Sprintf(
-			"%s/GET/%s?_token=%s",
+			"%s/LRANGE/%s/0/-1?_token=%s",
 			u.Host,
 			cacheKey,
 			u.token,
