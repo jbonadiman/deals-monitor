@@ -36,6 +36,7 @@ func initialize() {
 	}
 
 	if telegramService == "" {
+		// this function was idealized to be used with https://tg.i-c-a.su/
 		telegramService = os.Getenv("TELEGRAM_ICA_HOST")
 	}
 
