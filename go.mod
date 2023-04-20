@@ -1,0 +1,1 @@
+module deals_monitor
