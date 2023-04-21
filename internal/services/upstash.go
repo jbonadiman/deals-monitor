@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -72,15 +73,41 @@ func (u *UpstashDB) GetCache(channelName string) (map[int]struct{}, error) {
 func (u *UpstashDB) PushToCache(channelName string, ids ...string) error {
 	cacheKey := getCacheKey(channelName)
 
-	response, err := http.Get(
-		fmt.Sprintf(
-			"%s/RPUSH/%s/%s?_token=%s",
-			u.Host,
-			cacheKey,
-			strings.Join(ids, "/"),
-			u.token,
-		),
-	)
+	var wg sync.WaitGroup
+	var response *http.Response
+	var err error
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		response, err = http.Get(
+			fmt.Sprintf(
+				"%s/RPUSH/%s/%s?_token=%s",
+				u.Host,
+				cacheKey,
+				strings.Join(ids, "/"),
+				u.token,
+			),
+		)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		response, err = http.Get(
+			fmt.Sprintf(
+				"%s/EXPIRE/%s/%s/NX?_token=%s",
+				u.Host,
+				cacheKey,
+				24*time.Hour,
+				u.token,
+			),
+		)
+	}()
+
+	wg.Wait()
 	if err != nil {
 		return err
 	}
