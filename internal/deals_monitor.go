@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"sync"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 
 type DailyDealsCache interface {
 	GetCache(channelName string) (map[int]struct{}, error)
-	PushToCache(channelName string, ids ...int) error
+	PushToCache(channelName string, ids ...string) error
 }
 
 type DealMonitorNotification interface {
@@ -72,10 +73,6 @@ func ParseDeals(
 		return err
 	}
 
-	if dailyCache == nil || len(dailyCache) == 0 {
-		dailyCache = make(map[int]struct{})
-	}
-
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -89,20 +86,19 @@ func ParseDeals(
 		return err
 	}
 
+	cacheBatch := make([]string, 0, len(messages))
+
 	for _, msg := range messages {
 		if msg.GetDate().Day() != time.Now().Day() { // post is not from today
 			continue
 		}
 
 		if _, ok := dailyCache[msg.Id]; !ok { // post not on cache
-			wg.Add(1)
-			go func() { // add post to cache
-				defer wg.Done()
-				err = upstashDB.PushToCache(channelUsername, msg.Id)
-			}()
+			cacheBatch = append(cacheBatch, strconv.Itoa(msg.Id))
 
 			for dealName, pattern := range compiledPatterns {
 				if pattern.MatchString(msg.Content) {
+
 					wg.Add(1)
 					go func() { // notify deal
 						defer wg.Done()
@@ -112,12 +108,22 @@ func ParseDeals(
 							msg.GetLink(),
 						)
 					}()
+
+					break // no need to check other deals
 				}
 			}
-
-			wg.Wait()
 		}
 	}
+
+	if len(cacheBatch) > 0 {
+		wg.Add(1)
+		go func() { // write in batch to cache
+			defer wg.Done()
+			err = upstashDB.PushToCache(channelUsername, cacheBatch...)
+		}()
+	}
+
+	wg.Wait()
 	if err != nil {
 		return err
 	}

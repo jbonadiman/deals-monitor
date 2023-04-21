@@ -13,7 +13,7 @@ import (
 const KeyFormat = "deals_monitor:%s:%s"
 
 type UpstashResponse struct {
-	Result []int `json:"result"`
+	Result []string `json:"result"`
 }
 
 type UpstashDB struct {
@@ -59,27 +59,25 @@ func (u *UpstashDB) GetCache(channelName string) (map[int]struct{}, error) {
 
 	var cache = make(map[int]struct{})
 	for _, id := range upstashResponse.Result {
-		cache[id] = struct{}{}
+		integer, err := strconv.Atoi(id)
+		if err != nil {
+			return nil, err
+		}
+		cache[integer] = struct{}{}
 	}
 
 	return cache, nil
 }
 
-func (u *UpstashDB) PushToCache(channelName string, ids ...int) error {
+func (u *UpstashDB) PushToCache(channelName string, ids ...string) error {
 	cacheKey := getCacheKey(channelName)
-
-	var builder strings.Builder
-	for _, id := range ids {
-		builder.WriteString(strconv.Itoa(id))
-		builder.WriteString("/")
-	}
 
 	response, err := http.Get(
 		fmt.Sprintf(
 			"%s/RPUSH/%s/%s?_token=%s",
 			u.Host,
 			cacheKey,
-			strings.TrimRight(builder.String(), "/"),
+			strings.Join(ids, "/"),
 			u.token,
 		),
 	)
