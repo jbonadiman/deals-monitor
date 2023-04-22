@@ -25,7 +25,7 @@ type UpstashDB struct {
 func NewRedisClient(redisConfig RedisConfig) *UpstashDB {
 	opt, err := redis.ParseURL(
 		fmt.Sprintf(
-			"rediss://:%s@%s:%d/0",
+			"redis://:%s@%s:%d/0",
 			redisConfig.Password,
 			redisConfig.Host,
 			redisConfig.Port,
