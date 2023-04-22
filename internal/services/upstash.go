@@ -1,65 +1,54 @@
 package services
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 const KeyFormat = "deals_monitor:%s:%s"
 
-type UpstashResponse struct {
-	Result []string `json:"result"`
+type RedisConfig struct {
+	Host     string
+	Port     int
+	Password string
 }
 
 type UpstashDB struct {
-	Host  string
-	token string
+	client *redis.Client
 }
 
-func NewUpstashDB(host string, token string) *UpstashDB {
+func NewRedisClient(redisConfig RedisConfig) *UpstashDB {
+	rdb := redis.NewClient(
+		&redis.Options{
+			Addr:     fmt.Sprintf("%s:%d", redisConfig.Host, redisConfig.Port),
+			Password: redisConfig.Password,
+			DB:       0, // use default DB
+		},
+	)
+
 	return &UpstashDB{
-		Host:  host,
-		token: token,
+		client: rdb,
 	}
 }
 
-func (u *UpstashDB) GetCache(channelName string) (map[int]struct{}, error) {
+func (redis *UpstashDB) GetCache(
+	ctx context.Context,
+	channelName string,
+) (map[int]struct{}, error) {
 	cacheKey := getCacheKey(channelName)
 
-	response, err := http.Get(
-		fmt.Sprintf(
-			"%s/LRANGE/%s/0/-1?_token=%s",
-			u.Host,
-			cacheKey,
-			u.token,
-		),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	defer func(body io.ReadCloser) {
-		_ = body.Close()
-	}(response.Body)
-
-	if response.StatusCode > 300 {
-		return nil, fmt.Errorf("error getting key %q", cacheKey)
-	}
-
-	var upstashResponse UpstashResponse
-	err = json.NewDecoder(response.Body).Decode(&upstashResponse)
+	redisArray, err := redis.client.LRange(ctx, cacheKey, 0, -1).Result()
 	if err != nil {
 		return nil, err
 	}
 
 	var cache = make(map[int]struct{})
-	for _, id := range upstashResponse.Result {
+	for _, id := range redisArray {
 		integer, err := strconv.Atoi(id)
 		if err != nil {
 			return nil, err
@@ -70,56 +59,33 @@ func (u *UpstashDB) GetCache(channelName string) (map[int]struct{}, error) {
 	return cache, nil
 }
 
-func (u *UpstashDB) PushToCache(channelName string, ids ...string) error {
+func (redis *UpstashDB) PushToCache(
+	ctx context.Context,
+	channelName string,
+	ids ...string,
+) error {
 	cacheKey := getCacheKey(channelName)
 
 	var wg sync.WaitGroup
-	var response *http.Response
 	var err error
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 
-		response, err = http.Get(
-			fmt.Sprintf(
-				"%s/RPUSH/%s/%s?_token=%s",
-				u.Host,
-				cacheKey,
-				strings.Join(ids, "/"),
-				u.token,
-			),
-		)
+		err = redis.client.RPush(ctx, cacheKey, ids).Err()
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 
-		response, err = http.Get(
-			fmt.Sprintf(
-				"%s/EXPIRE/%s/%s/NX?_token=%s",
-				u.Host,
-				cacheKey,
-				24*time.Hour,
-				u.token,
-			),
-		)
+		err = redis.client.ExpireNX(ctx, cacheKey, 24*time.Hour).Err()
 	}()
 
 	wg.Wait()
 	if err != nil {
 		return err
-	}
-
-	defer func(body io.ReadCloser) {
-		_ = body.Close()
-	}(response.Body)
-
-	if response.StatusCode > 300 {
-		return fmt.Errorf(
-			"error pushing to cache %q", cacheKey,
-		)
 	}
 
 	return nil

@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
@@ -13,8 +14,8 @@ import (
 )
 
 type DailyDealsCache interface {
-	GetCache(channelName string) (map[int]struct{}, error)
-	PushToCache(channelName string, ids ...string) error
+	GetCache(ctx context.Context, channelName string) (map[int]struct{}, error)
+	PushToCache(ctx context.Context, channelName string, ids ...string) error
 }
 
 type DealMonitorNotification interface {
@@ -29,9 +30,17 @@ var (
 
 func initialize() {
 	if upstashDB == nil {
-		upstashDB = services.NewUpstashDB(
-			os.Getenv("UPSTASH_HOST"),
-			os.Getenv("UPSTASH_TOKEN"),
+		parsedPort, err := strconv.Atoi(os.Getenv("REDIS_PORT"))
+		if err != nil {
+			parsedPort = 5672
+		}
+
+		upstashDB = services.NewRedisClient(
+			services.RedisConfig{
+				Host:     os.Getenv("REDIS_HOST"),
+				Port:     parsedPort,
+				Password: os.Getenv("REDIS_PASSWORD"),
+			},
 		)
 	}
 
@@ -52,6 +61,8 @@ func ParseDeals(
 	monitoredDeals map[string]string,
 	channelUsername string,
 ) error {
+	ctx := context.Background()
+
 	initialize()
 	var wg sync.WaitGroup
 	var messages []models.Message
@@ -68,7 +79,7 @@ func ParseDeals(
 		)
 	}()
 
-	dailyCache, err := upstashDB.GetCache(channelUsername)
+	dailyCache, err := upstashDB.GetCache(ctx, channelUsername)
 	if err != nil {
 		return err
 	}
@@ -119,7 +130,7 @@ func ParseDeals(
 		wg.Add(1)
 		go func() { // write in batch to cache
 			defer wg.Done()
-			err = upstashDB.PushToCache(channelUsername, cacheBatch...)
+			err = upstashDB.PushToCache(ctx, channelUsername, cacheBatch...)
 		}()
 	}
 
