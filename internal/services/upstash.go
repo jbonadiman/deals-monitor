@@ -12,27 +12,12 @@ import (
 
 const KeyFormat = "deals_monitor:%s:%s"
 
-type RedisConfig struct {
-	Host     string
-	Port     int
-	Password string
-}
-
 type UpstashDB struct {
 	client *redis.Client
 }
 
-func NewRedisClient(redisConfig RedisConfig) *UpstashDB {
-	redisUrl := fmt.Sprintf(
-		"redis://:%s@%s:%d/0",
-		redisConfig.Password,
-		redisConfig.Host,
-		redisConfig.Port,
-	)
-
-	fmt.Printf("redisUrl: %s", redisUrl)
-
-	opt, err := redis.ParseURL(redisUrl)
+func NewRedisClient(url string) *UpstashDB {
+	opt, err := redis.ParseURL(url)
 	if err != nil {
 		panic(err)
 	}

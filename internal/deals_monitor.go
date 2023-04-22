@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,29 +31,20 @@ var (
 
 func initialize() {
 	if upstashDB == nil {
-		parsedPort, err := strconv.Atoi(os.Getenv("REDIS_PORT"))
-		if err != nil {
-			parsedPort = 5672
-		}
-
 		upstashDB = services.NewRedisClient(
-			services.RedisConfig{
-				Host:     os.Getenv("REDIS_HOST"),
-				Port:     parsedPort,
-				Password: os.Getenv("REDIS_PASSWORD"),
-			},
+			strings.TrimSpace(os.Getenv("UPSTASH_URL")),
 		)
 	}
 
 	if telegramService == "" {
 		// this function was idealized to be used with https://tg.i-c-a.su/
-		telegramService = os.Getenv("TELEGRAM_ICA_HOST")
+		telegramService = strings.TrimSpace(os.Getenv("TELEGRAM_ICA_HOST"))
 	}
 
 	if pushoverService == nil {
 		pushoverService = services.NewPushoverService(
-			os.Getenv("PUSHOVER_TOKEN"),
-			os.Getenv("PUSHOVER_USER"),
+			strings.TrimSpace(os.Getenv("PUSHOVER_TOKEN")),
+			strings.TrimSpace(os.Getenv("PUSHOVER_USER")),
 		)
 	}
 }
