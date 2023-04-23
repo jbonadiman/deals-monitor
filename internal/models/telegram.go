@@ -7,8 +7,8 @@ import (
 )
 
 type TelegramResponse struct {
-	Messages []Message `json:"messages"`
-	Chats    []Channel `json:"chats"`
+	Messages []*Message `json:"messages"`
+	Chats    []Channel  `json:"chats"`
 }
 
 type Channel struct {
@@ -20,14 +20,14 @@ type Message struct {
 	Id        int    `json:"id"`
 	DateEpoch int64  `json:"date"`
 	Content   string `json:"message"`
-	Channel   Channel
+	Channel   *Channel
 }
 
-func (m *Message) GetDate() time.Time {
+func (m Message) GetDate() time.Time {
 	return time.Unix(m.DateEpoch, 0)
 }
 
-func (m *Message) GetLink() string {
+func (m Message) GetLink() string {
 	return fmt.Sprintf(
 		"https://t.me/%s/%s",
 		m.Channel.Username,

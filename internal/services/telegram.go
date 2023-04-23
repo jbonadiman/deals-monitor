@@ -14,7 +14,7 @@ func GetTelegramMessages(
 	host string,
 	channelUsername string,
 	limit int,
-) ([]models.Message, error) {
+) ([]*models.Message, error) {
 	limitParsed := math.Max(
 		10,
 		math.Min(100, float64(limit)),
@@ -39,8 +39,9 @@ func GetTelegramMessages(
 
 	if response.StatusCode > 300 {
 		return nil, fmt.Errorf(
-			"error getting messages from channel %q",
+			"error getting messages from channel %q: %q",
 			channelUsername,
+			response.Status,
 		)
 	}
 
@@ -51,7 +52,7 @@ func GetTelegramMessages(
 	}
 
 	for _, msg := range telegramResponse.Messages {
-		msg.Channel = telegramResponse.Chats[0]
+		msg.Channel = &telegramResponse.Chats[0]
 	}
 
 	return telegramResponse.Messages, nil

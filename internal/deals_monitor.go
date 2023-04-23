@@ -29,10 +29,11 @@ var (
 	pushoverService DealMonitorNotification
 )
 
-func initialize() {
+func initialize(ctx context.Context) {
 	if upstashDB == nil {
 		upstashDB = services.NewRedisClient(
-			strings.TrimSpace(os.Getenv("UPSTASH_URL")),
+			ctx,
+			strings.TrimSpace(os.Getenv("REDIS_URL")),
 		)
 	}
 
@@ -55,9 +56,9 @@ func ParseDeals(
 ) error {
 	ctx := context.Background()
 
-	initialize()
+	initialize(ctx)
 	var wg sync.WaitGroup
-	var messages []models.Message
+	var messages []*models.Message
 	var err error
 	compiledPatterns := make(map[string]*regexp.Regexp, len(monitoredDeals))
 
