@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -16,26 +16,34 @@ type UpstashDB struct {
 	client *redis.Client
 }
 
-func NewRedisClient(url string) *UpstashDB {
+func NewRedisClient(ctx context.Context, url string) *UpstashDB {
 	opt, err := redis.ParseURL(url)
 	if err != nil {
 		panic(err)
 	}
 
+	opt.ConnMaxIdleTime = 5 * time.Minute
+	client := redis.NewClient(opt)
+
+	err = client.Ping(ctx).Err()
+	if err != nil {
+		panic(err)
+	}
+
 	return &UpstashDB{
-		client: redis.NewClient(opt),
+		client: client,
 	}
 }
 
-func (redis *UpstashDB) GetCache(
+func (r *UpstashDB) GetCache(
 	ctx context.Context,
 	channelName string,
 ) (map[int]struct{}, error) {
 	cacheKey := getCacheKey(channelName)
 
-	redisArray, err := redis.client.LRange(ctx, cacheKey, 0, -1).Result()
-	if err != nil {
-		return nil, err
+	redisArray := r.client.LRange(ctx, cacheKey, 0, -1).Val()
+	if redisArray == nil {
+		return nil, nil
 	}
 
 	var cache = make(map[int]struct{})
@@ -50,31 +58,21 @@ func (redis *UpstashDB) GetCache(
 	return cache, nil
 }
 
-func (redis *UpstashDB) PushToCache(
+func (r *UpstashDB) PushToCache(
 	ctx context.Context,
 	channelName string,
 	ids ...string,
 ) error {
 	cacheKey := getCacheKey(channelName)
 
-	var wg sync.WaitGroup
-	var err error
+	pipe := r.client.Pipeline()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	pipe.RPush(ctx, cacheKey, ids)
+	pipe.Expire(ctx, cacheKey, 24*time.Hour)
 
-		err = redis.client.RPush(ctx, cacheKey, ids).Err()
-	}()
+	cmd, err := pipe.Exec(ctx)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		err = redis.client.ExpireNX(ctx, cacheKey, 24*time.Hour).Err()
-	}()
-
-	wg.Wait()
+	log.Println(cmd)
 	if err != nil {
 		return err
 	}
