@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"time"
 
@@ -69,10 +68,8 @@ func (r *UpstashDB) PushToCache(
 
 	pipe.RPush(ctx, cacheKey, ids)
 	pipe.Expire(ctx, cacheKey, 24*time.Hour)
+	_, err := pipe.Exec(ctx)
 
-	cmd, err := pipe.Exec(ctx)
-
-	log.Println(cmd)
 	if err != nil {
 		return err
 	}
