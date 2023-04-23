@@ -24,7 +24,7 @@ type Message struct {
 }
 
 func (m Message) GetDate() time.Time {
-	return time.Unix(m.DateEpoch, 0)
+	return time.Unix(m.DateEpoch, 0).UTC()
 }
 
 func (m Message) GetLink() string {
