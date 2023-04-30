@@ -1,4 +1,4 @@
-package handler
+package deals_monitor
 
 import (
 	"encoding/json"
