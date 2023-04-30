@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,7 +21,10 @@ type DealsService interface {
 }
 
 type DealsCache interface {
-	GetCache(ctx context.Context, channelName string) (map[int]struct{}, error)
+	GetCache(ctx context.Context, channelName string) (
+		map[string]struct{},
+		error,
+	)
 	PushToCache(ctx context.Context, channelName string, ids ...string) error
 }
 
@@ -103,7 +105,7 @@ func ParseDeals(
 		}
 
 		if _, ok := dailyCache[msg.Id]; !ok { // message not on cache
-			cacheBatch = append(cacheBatch, strconv.Itoa(msg.Id))
+			cacheBatch = append(cacheBatch, msg.Id)
 
 			for dealName, pattern := range compiledPatterns {
 				if pattern.MatchString(msg.Content) {

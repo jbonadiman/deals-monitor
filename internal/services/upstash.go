@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -37,7 +36,7 @@ func NewRedisClient(ctx context.Context, url string) *UpstashDB {
 func (r *UpstashDB) GetCache(
 	ctx context.Context,
 	channelName string,
-) (map[int]struct{}, error) {
+) (map[string]struct{}, error) {
 	cacheKey := getCacheKey(channelName)
 
 	redisArray := r.client.LRange(ctx, cacheKey, 0, -1).Val()
@@ -45,13 +44,9 @@ func (r *UpstashDB) GetCache(
 		return nil, nil
 	}
 
-	var cache = make(map[int]struct{})
+	var cache = make(map[string]struct{})
 	for _, id := range redisArray {
-		integer, err := strconv.Atoi(id)
-		if err != nil {
-			return nil, err
-		}
-		cache[integer] = struct{}{}
+		cache[id] = struct{}{}
 	}
 
 	return cache, nil
