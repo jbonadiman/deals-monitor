@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
+	"time"
 
 	"deals_monitor/internal/models"
 )
@@ -13,20 +13,17 @@ import (
 func GetTelegramMessages(
 	host string,
 	channelUsername string,
-	limit int,
-) ([]*models.Message, error) {
-	limitParsed := math.Max(
-		10,
-		math.Min(100, float64(limit)),
-	) // limit between 10 and 100
-	limit = int(limitParsed)
+) (*models.Channel, error) {
+	t := time.Now().UTC()
+	tMinus := t.AddDate(0, 0, -1)
 
 	response, err := http.Get(
 		fmt.Sprintf(
-			"%s/json/%s?limit=%d",
+			"%s/api/channel/messages?channelId=%s&fromDateUTC=%d&toDateUTC=%d",
 			host,
 			channelUsername,
-			limit,
+			tMinus.Unix(),
+			t.Unix(),
 		),
 	)
 	if err != nil {
@@ -45,15 +42,11 @@ func GetTelegramMessages(
 		)
 	}
 
-	var telegramResponse models.TelegramResponse
+	var telegramResponse models.Channel
 	err = json.NewDecoder(response.Body).Decode(&telegramResponse)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, msg := range telegramResponse.Messages {
-		msg.Channel = &telegramResponse.Chats[0]
-	}
-
-	return telegramResponse.Messages, nil
+	return &telegramResponse, nil
 }

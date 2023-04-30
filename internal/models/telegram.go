@@ -2,35 +2,29 @@ package models
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 )
 
-type TelegramResponse struct {
-	Messages []*Message `json:"messages"`
-	Chats    []Channel  `json:"chats"`
-}
-
 type Channel struct {
-	Title    string `json:"title"`
-	Username string `json:"username"`
+	Name     string    `json:"name"`
+	Username string    `json:"username"`
+	Messages []Message `json:"messages"`
 }
 
 type Message struct {
 	Id        int    `json:"id"`
-	DateEpoch int64  `json:"date"`
+	DateEpoch int64  `json:"dateEpoch"`
 	Content   string `json:"message"`
-	Channel   *Channel
 }
 
 func (m Message) GetDate() time.Time {
 	return time.Unix(m.DateEpoch, 0).UTC()
 }
 
-func (m Message) GetLink() string {
+func (c Channel) GetMessageLink(id int) string {
 	return fmt.Sprintf(
-		"https://t.me/%s/%s",
-		m.Channel.Username,
-		strconv.Itoa(m.Id),
+		"https://t.me/%s/%d",
+		c.Username,
+		id,
 	)
 }

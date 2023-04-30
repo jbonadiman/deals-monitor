@@ -14,19 +14,26 @@ import (
 	"deals_monitor/internal/services"
 )
 
-type DailyDealsCache interface {
+type DealsService interface {
+	GetTodayDeals(ctx context.Context, channelName string) (
+		[]*models.Message,
+		error,
+	)
+}
+
+type DealsCache interface {
 	GetCache(ctx context.Context, channelName string) (map[int]struct{}, error)
 	PushToCache(ctx context.Context, channelName string, ids ...string) error
 }
 
-type DealMonitorNotification interface {
+type DealsMonitor interface {
 	NotifyDeal(title, message, url string) error
 }
 
 var (
-	upstashDB       DailyDealsCache
+	upstashDB       DealsCache
 	telegramService string
-	pushoverService DealMonitorNotification
+	pushoverService DealsMonitor
 )
 
 func initialize(ctx context.Context) {
@@ -38,8 +45,7 @@ func initialize(ctx context.Context) {
 	}
 
 	if telegramService == "" {
-		// this function was idealized to be used with https://tg.i-c-a.su/
-		telegramService = strings.TrimSpace(os.Getenv("TELEGRAM_ICA_HOST"))
+		telegramService = strings.TrimSpace(os.Getenv("TELEGRAM_HOST"))
 	}
 
 	if pushoverService == nil {
@@ -58,24 +64,23 @@ func ParseDeals(
 
 	initialize(ctx)
 	var wg sync.WaitGroup
-	var messages []*models.Message
+	var channelHistory *models.Channel
 	var err error
 	compiledPatterns := make(map[string]*regexp.Regexp, len(monitoredDeals))
-
-	wg.Add(1)
-	go func() { // fetch telegram messages
-		defer wg.Done()
-		messages, err = services.GetTelegramMessages(
-			telegramService,
-			channelUsername,
-			20,
-		)
-	}()
 
 	dailyCache, err := upstashDB.GetCache(ctx, channelUsername)
 	if err != nil {
 		return err
 	}
+
+	wg.Add(1)
+	go func() { // fetch channel history
+		defer wg.Done()
+		channelHistory, err = services.GetTelegramMessages(
+			telegramService,
+			channelUsername,
+		)
+	}()
 
 	wg.Add(1)
 	go func() {
@@ -90,14 +95,14 @@ func ParseDeals(
 		return err
 	}
 
-	cacheBatch := make([]string, 0, len(messages))
+	cacheBatch := make([]string, 0, len(channelHistory.Messages))
 
-	for _, msg := range messages {
-		if msg.GetDate().Day() != time.Now().Day() { // post is not from today
+	for _, msg := range channelHistory.Messages {
+		if msg.GetDate().Day() != time.Now().Day() { // message is not from today
 			continue
 		}
 
-		if _, ok := dailyCache[msg.Id]; !ok { // post not on cache
+		if _, ok := dailyCache[msg.Id]; !ok { // message not on cache
 			cacheBatch = append(cacheBatch, strconv.Itoa(msg.Id))
 
 			for dealName, pattern := range compiledPatterns {
@@ -108,8 +113,8 @@ func ParseDeals(
 						defer wg.Done()
 						err = pushoverService.NotifyDeal(
 							fmt.Sprintf("💰 new deal for %q!", dealName),
-							fmt.Sprintf("found on %s", msg.Channel.Title),
-							msg.GetLink(),
+							fmt.Sprintf("found on %s", channelHistory.Name),
+							channelHistory.GetMessageLink(msg.Id),
 						)
 					}()
 
