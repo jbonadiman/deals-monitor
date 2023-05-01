@@ -14,23 +14,25 @@ func GetTelegramMessages(
 	host string,
 	channelUsername string,
 ) (models.TelegramResponse, error) {
-	t := time.Now().UTC()
+	t := time.Now()
+
+	t2 := time.Date(
+		t.Year(),
+		t.Month(),
+		t.Day(),
+		0,
+		0,
+		0,
+		0,
+		time.Local,
+	).Unix()
 
 	response, err := http.Get(
 		fmt.Sprintf(
 			"%s/api/channel/messages?channelId=%s&fromDateUTC=%d",
 			host,
 			channelUsername,
-			time.Date(
-				t.Year(),
-				t.Month(),
-				t.Day(),
-				0,
-				0,
-				0,
-				0,
-				time.UTC,
-			).Unix(),
+			t2,
 		),
 	)
 	if err != nil {
