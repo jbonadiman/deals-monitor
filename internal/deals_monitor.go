@@ -67,7 +67,6 @@ func ParseDeals(
 	initialize(ctx)
 	var wg sync.WaitGroup
 	var channelHistory models.TelegramResponse
-	var err error
 	compiledPatterns := make(map[string]*regexp.Regexp, len(monitoredDeals))
 
 	dailyCache, err := upstashDB.GetCache(ctx, channelUsername)
@@ -109,20 +108,16 @@ func ParseDeals(
 
 			for dealName, pattern := range compiledPatterns {
 				if pattern.MatchString(msg.Content) {
-
-					wg.Add(1)
-					go func() { // notify deal
-						defer wg.Done()
-						err = pushoverService.NotifyDeal(
-							fmt.Sprintf("💰 new deal for %q!", dealName),
-							fmt.Sprintf(
-								"found on %s",
-								channelHistory.Channel.Name,
-							),
-							channelHistory.GetMessageLink(msg.Id),
-						)
-					}()
-
+					if err = pushoverService.NotifyDeal(
+						fmt.Sprintf("💰 new deal for %q!", dealName),
+						fmt.Sprintf(
+							"found on %s",
+							channelHistory.Channel.Name,
+						),
+						channelHistory.GetMessageLink(msg.Id),
+					); err != nil {
+						return err
+					}
 					break // no need to check other deals
 				}
 			}
@@ -130,16 +125,13 @@ func ParseDeals(
 	}
 
 	if len(cacheBatch) > 0 {
-		wg.Add(1)
-		go func() { // write in batch to cache
-			defer wg.Done()
-			err = upstashDB.PushToCache(ctx, channelUsername, cacheBatch...)
-		}()
-	}
-
-	wg.Wait()
-	if err != nil {
-		return err
+		if err = upstashDB.PushToCache(
+			ctx,
+			channelUsername,
+			cacheBatch...,
+		); err != nil {
+			return err
+		}
 	}
 
 	return nil
