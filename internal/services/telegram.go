@@ -16,23 +16,21 @@ func GetTelegramMessages(
 ) (models.TelegramResponse, error) {
 	t := time.Now()
 
-	t2 := time.Date(
-		t.Year(),
-		t.Month(),
-		t.Day(),
-		0,
-		0,
-		0,
-		0,
-		time.Local,
-	).Unix()
-
 	response, err := http.Get(
 		fmt.Sprintf(
 			"%s/api/channel/messages?channelId=%s&fromDateUTC=%d",
 			host,
 			channelUsername,
-			t2,
+			time.Date(
+				t.Year(),
+				t.Month(),
+				t.Day(),
+				0,
+				0,
+				0,
+				0,
+				time.Local,
+			).Unix(),
 		),
 	)
 	if err != nil {
@@ -52,8 +50,7 @@ func GetTelegramMessages(
 	}
 
 	var telegramResponse models.TelegramResponse
-	err = json.NewDecoder(response.Body).Decode(&telegramResponse)
-	if err != nil {
+	if err = json.NewDecoder(response.Body).Decode(&telegramResponse); err != nil {
 		return models.TelegramResponse{}, err
 	}
 
