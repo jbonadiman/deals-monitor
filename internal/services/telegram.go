@@ -13,7 +13,7 @@ import (
 func GetTelegramMessages(
 	host string,
 	channelUsername string,
-) (*models.Channel, error) {
+) (models.TelegramResponse, error) {
 	t := time.Now()
 	tMinus := t.AddDate(0, 0, -1)
 
@@ -27,7 +27,7 @@ func GetTelegramMessages(
 		),
 	)
 	if err != nil {
-		return nil, err
+		return models.TelegramResponse{}, err
 	}
 
 	defer func(body io.ReadCloser) {
@@ -35,18 +35,18 @@ func GetTelegramMessages(
 	}(response.Body)
 
 	if response.StatusCode > 300 {
-		return nil, fmt.Errorf(
+		return models.TelegramResponse{}, fmt.Errorf(
 			"error getting messages from channel %q: %q",
 			channelUsername,
 			response.Status,
 		)
 	}
 
-	var telegramResponse models.Channel
+	var telegramResponse models.TelegramResponse
 	err = json.NewDecoder(response.Body).Decode(&telegramResponse)
 	if err != nil {
-		return nil, err
+		return models.TelegramResponse{}, err
 	}
 
-	return &telegramResponse, nil
+	return telegramResponse, nil
 }

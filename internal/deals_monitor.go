@@ -66,7 +66,7 @@ func ParseDeals(
 
 	initialize(ctx)
 	var wg sync.WaitGroup
-	var channelHistory *models.Channel
+	var channelHistory models.TelegramResponse
 	var err error
 	compiledPatterns := make(map[string]*regexp.Regexp, len(monitoredDeals))
 
@@ -115,7 +115,10 @@ func ParseDeals(
 						defer wg.Done()
 						err = pushoverService.NotifyDeal(
 							fmt.Sprintf("💰 new deal for %q!", dealName),
-							fmt.Sprintf("found on %s", channelHistory.Name),
+							fmt.Sprintf(
+								"found on %s",
+								channelHistory.Channel.Name,
+							),
 							channelHistory.GetMessageLink(msg.Id),
 						)
 					}()
