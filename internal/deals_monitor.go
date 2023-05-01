@@ -98,8 +98,9 @@ func ParseDeals(
 
 	cacheBatch := make([]string, 0, len(channelHistory.Messages))
 
+	today := time.Now().UTC().Day()
 	for _, msg := range channelHistory.Messages {
-		if msg.GetDate().Day() != time.Now().Day() { // message is not from today
+		if msg.GetDate().Day() != today { // message is not from today
 			continue
 		}
 

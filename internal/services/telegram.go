@@ -14,7 +14,7 @@ func GetTelegramMessages(
 	host string,
 	channelUsername string,
 ) (models.TelegramResponse, error) {
-	t := time.Now()
+	t := time.Now().UTC()
 
 	response, err := http.Get(
 		fmt.Sprintf(
@@ -29,7 +29,7 @@ func GetTelegramMessages(
 				0,
 				0,
 				0,
-				time.Local,
+				time.UTC,
 			).Unix(),
 		),
 	)
